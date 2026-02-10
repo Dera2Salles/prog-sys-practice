@@ -41,9 +41,9 @@ int main(int argc, char *argv[]) {
 
   while ((bytes = read(fd, buffer, BUF_SIZE)) > 0) {
     for (int i = 0; i < bytes; i++) {
-      char c = buffer[i];
+      char caracter = buffer[i];
 
-      if (isSeparator(c)) {
+      if (isSeparator(caracter)) {
         if (wpos > 0) {
           word[wpos] = '\0';
 
@@ -56,11 +56,11 @@ int main(int argc, char *argv[]) {
           wpos = 0;
         }
 
-        write(tmp, &c, 1);
+        write(tmp, &caracter, 1);
 
       } else {
         if (wpos < WORD_SIZE - 1) {
-          word[wpos++] = c;
+          word[wpos++] = caracter;
         }
       }
     }
