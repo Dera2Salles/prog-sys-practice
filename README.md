@@ -1,6 +1,6 @@
-# prog-sys-practice
+# C-tools
 
-**prog-sys-practice** is a collection of high-performance C tools designed to explore and master system-level programming concepts.
+**C-tools** is a collection of high-performance C tools designed to explore and master system-level programming concepts.
 
 This repository serves as a personal laboratory for implementing core utilities ranging from file management to low-level string manipulation, emphasizing POSIX APIs and manual memory management.
 
