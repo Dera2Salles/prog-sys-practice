@@ -1,8 +1,8 @@
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
 #define BUF_SIZE 20
 #define WORD_SIZE 64
 
@@ -11,34 +11,45 @@ int isEndOfSentence(char c) {
 }
 
 int main(int argc, char *argv[]) {
-
   if (argc < 3) {
     fprintf(stderr,
-            "Usage: %s [-i] <fichier> <mot_a_chercher>\n"
+            "Usage: %s [-o <output>] <fichier> <mot_a_chercher>\n"
             "Options:\n"
-            "  -i  recherche par sous-chaîne\n"
+            "  -o <output>   écrire le résultat dans un fichier\n"
             "Example:\n"
             "  %s out/toto.txt toto\n"
-            "  %s -i out/toto.txt nom\n",
+            "  %s -o result.txt out/toto.txt toto\n",
             argv[0], argv[0], argv[0]);
     return 1;
   }
 
-  int substring = 0;
-  char *filename;
-  char *search;
+  char *filename = NULL;
+  char *search = NULL;
+  char *output_file = NULL;
 
-  if (strcmp(argv[1], "-i") == 0) {
-    substring = 1;
-    if (argc < 4) {
-      fprintf(stderr, "Usage avec -i : %s -i <fichier> <mot>\n", argv[0]);
-      return 1;
+  int i = 1;
+  while (i < argc) {
+    if (strcmp(argv[i], "-o") == 0) {
+      if (i + 1 >= argc) {
+        fprintf(stderr, "Erreur : -o nécessite un nom de fichier\n");
+        return 1;
+      }
+      output_file = argv[i + 1];
+      i += 2;
+    } else if (filename == NULL) {
+      filename = argv[i];
+      i++;
+    } else if (search == NULL) {
+      search = argv[i];
+      i++;
+    } else {
+      i++;
     }
-    filename = argv[2];
-    search = argv[3];
-  } else {
-    filename = argv[1];
-    search = argv[2];
+  }
+
+  if (filename == NULL || search == NULL) {
+    fprintf(stderr, "Erreur : fichier ou mot manquant\n");
+    return 1;
   }
 
   int fd = open(filename, O_RDONLY);
@@ -47,74 +58,73 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  int fd_out = -1;
+  if (output_file != NULL) {
+    fd_out = open(output_file, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd_out == -1) {
+      perror("open output");
+      close(fd);
+      return 1;
+    }
+  }
+
   char buffer[BUF_SIZE];
-  char word[WORD_SIZE];
-  char word_found[WORD_SIZE];
+  char *word = malloc(1);
+  if (!word) {
+    perror("malloc");
+    close(fd);
+    if (fd_out != -1)
+      close(fd_out);
+    return -1;
+  }
+
+  int word_cap = 4;
   int wpos = 0;
   ssize_t byte_read;
   int word_count = 0;
-  int line_number = 1;
 
   while ((byte_read = read(fd, buffer, BUF_SIZE)) > 0) {
     for (int i = 0; i < byte_read; i++) {
       char caracter = buffer[i];
-
-      if (caracter == '\n')
-        line_number++;
-
       if (isEndOfSentence(caracter)) {
         if (wpos > 0) {
           word[wpos] = '\0';
-
-          int found = 0;
-          if (substring) {
-            if (strstr(word, search) != NULL)
-              found = 1;
-          } else {
-            if (strcmp(word, search) == 0)
-              found = 1;
-          }
-
-          if (found) {
+          if (strcmp(word, search) == 0)
             word_count++;
-            strcpy(word_found, word);
-            printf("Mot trouvé : '%s' à la ligne %d\n", word, line_number);
-          }
-
           wpos = 0;
         }
       } else {
-        if (wpos < WORD_SIZE - 1) {
-          word[wpos++] = caracter;
+        if (wpos + 1 >= word_cap) {
+          word_cap *= 2;
+          char *tmp = realloc(word, word_cap);
+          if (!tmp) {
+            perror("realloc");
+            break;
+          }
+          word = tmp;
         }
+        if (wpos < WORD_SIZE - 1)
+          word[wpos++] = caracter;
       }
     }
   }
 
   if (wpos > 0) {
     word[wpos] = '\0';
-
-    int found = 0;
-    if (substring) {
-      if (strstr(word, search) != NULL)
-        found = 1;
-    } else {
-      if (strcmp(word, search) == 0)
-        found = 1;
-    }
-
-    if (found) {
+    if (strcmp(word, search) == 0)
       word_count++;
-      strcpy(word_found, word);
-      printf("Mot trouvé : '%s' à la ligne %d\n", word, line_number);
-    }
   }
 
-  if (word_count > 0)
-    printf("\nNombre total d'occurrences : %d\n", word_count);
-  else
-    printf("Mot '%s' non trouvé\n", search);
+  char line_buf[256];
+  snprintf(line_buf, sizeof(line_buf), "Mot : %s , occurence : %d\n", search,
+           word_count);
+  printf("%s", line_buf);
+  if (fd_out != -1)
+    write(fd_out, line_buf, strlen(line_buf));
 
+  free(word);
   close(fd);
+  if (fd_out != -1)
+    close(fd_out);
   return 0;
 }
