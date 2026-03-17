@@ -4,61 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define BUF_SIZE 20
-#define WORD_SIZE 64
-
-int isEndOfSentence(char c) {
-  return (c == ' ' || c == '\n' || c == '\t' || c == '.' || c == ',');
-}
-
-int process_search_word(char *search, int *word_count, int fd, int fd_out) {
-
-  char buffer[BUF_SIZE];
-  char *word = malloc(1);
-  if (!word) {
-    perror("malloc");
-    return -1;
-  }
-
-  int word_cap = 4;
-  int wpos = 0;
-  ssize_t byte_read;
-
-  while ((byte_read = read(fd, buffer, BUF_SIZE)) > 0) {
-    for (int i = 0; i < byte_read; i++) {
-      char caracter = buffer[i];
-      if (isEndOfSentence(caracter)) {
-        if (wpos > 0) {
-          word[wpos] = '\0';
-          if (strcmp(word, search) == 0)
-            (*word_count)++;
-          wpos = 0;
-        }
-      } else {
-        if (wpos + 1 >= word_cap) {
-          word_cap *= 2;
-          char *tmp = realloc(word, word_cap);
-          if (!tmp) {
-            perror("realloc");
-            break;
-          }
-          word = tmp;
-        }
-        if (wpos < WORD_SIZE - 1)
-          word[wpos++] = caracter;
-      }
-    }
-  }
-
-  if (wpos > 0) {
-    word[wpos] = '\0';
-    if (strcmp(word, search) == 0)
-      (*word_count)++;
-  }
-  free(word);
-
-  return 0;
-}
+#include "search.h"
 
 int main(int argc, char *argv[]) {
   if (argc < 3) {
